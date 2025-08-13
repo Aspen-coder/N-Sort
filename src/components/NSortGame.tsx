@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Brain, Settings } from "lucide-react";
+import { Line } from "react-chartjs-2";
+import "chart.js/auto";
 
 type StimulusType = "colors" | "numbers" | "letters" | "shapes";
 type SortingPattern =
@@ -18,6 +20,14 @@ interface Stimulus {
   sortValue: number;
   stimulusType?: StimulusType;
 }
+
+interface PracticeStat {
+  timestamp: number; // Date.now()
+  modeKey: string;   // Example: "3-types-N=3"
+  speed: number;     // stimuli per second
+}
+
+
 
 const stimuli: Record<StimulusType, Stimulus[]> = {
   colors: [
@@ -105,6 +115,10 @@ const NSortGame: React.FC = () => {
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
 
+  const [showAdvanced, setShowAdvanced] = useState(false);
+    const [showStats, setShowStats] = useState(false);
+    const [distinction, setDistinction] = useState(50); // default 50%
+
   const [speed, setSpeed] = useState(2.0); // seconds per stimulus
 
   const [sequencesByType, setSequencesByType] = useState<
@@ -132,25 +146,152 @@ const NSortGame: React.FC = () => {
 
   // --- Generation ---
   const generateSequencesByType = useCallback(() => {
-    const newSequences: Record<StimulusType, Stimulus[]> = {
-      colors: [],
-      numbers: [],
-      letters: [],
-      shapes: [],
-    };
+  const newSequences: Record<StimulusType, Stimulus[]> = {
+    colors: [],
+    numbers: [],
+    letters: [],
+    shapes: [],
+  };
 
-    selectedStimulusTypes.forEach((type) => {
-      const pool = stimuli[type];
-      const seq: Stimulus[] = [];
-      for (let i = 0; i < level; i++) {
-        const randomStimulus = pool[Math.floor(Math.random() * pool.length)];
-        seq.push({ ...randomStimulus, stimulusType: type });
+  selectedStimulusTypes.forEach((type) => {
+    const pool = stimuli[type];
+    const seq: Stimulus[] = [];
+
+    for (let i = 0; i < level; i++) {
+      // Distinction bias: probability to avoid duplicates
+      let candidate: Stimulus;
+      if (Math.random() < distinction / 100) {
+        // Pick something NOT already used in this sequence (if possible)
+        const unused = pool.filter(
+          (stim) => !seq.some((s) => s.id === stim.id)
+        );
+        if (unused.length > 0) {
+          candidate = unused[Math.floor(Math.random() * unused.length)];
+        } else {
+          candidate = pool[Math.floor(Math.random() * pool.length)];
+        }
+      } else {
+        // No bias — pick freely
+        candidate = pool[Math.floor(Math.random() * pool.length)];
       }
-      newSequences[type] = seq;
-    });
 
-    return newSequences;
-  }, [level, selectedStimulusTypes]);
+      seq.push({ ...candidate, stimulusType: type });
+    }
+
+    newSequences[type] = seq;
+  });
+
+  return newSequences;
+}, [level, selectedStimulusTypes, distinction]);
+
+    // stats helpers
+function savePracticeStat(selectedStimulusTypes: string[], N: number, speedSetting: number, correctCount: number) {
+  const modeKey = `${selectedStimulusTypes.length}-types-N=${N}`;
+
+  // Calculate average stimuli/second for correct answers only
+  const avgSpeed = correctCount / speedSetting; // stimuli per second
+
+  const newStat: PracticeStat = {
+    timestamp: Date.now(),
+    modeKey,
+    speed: avgSpeed,
+  };
+
+  // Load existing stats
+  const existing = JSON.parse(localStorage.getItem("nsort_stats") || "[]");
+
+  // Add new record
+  existing.push(newStat);
+
+  // Save back to localStorage
+  localStorage.setItem("nsort_stats", JSON.stringify(existing));
+}
+
+function loadStats(): PracticeStat[] {
+  return JSON.parse(localStorage.getItem("practiceStats") || "[]");
+}
+
+function saveStat(newStat: PracticeStat) {
+  const stats = loadStats();
+  console.log("SAVING STAT!!");
+  stats.push(newStat);
+  localStorage.setItem("practiceStats", JSON.stringify(stats));
+}
+
+function onPracticeComplete(params: { correct: boolean; stimuliCount: number; speedPerStimulus: number }) {
+  const { correct, stimuliCount, speedPerStimulus } = params;
+  if (!correct) return;
+
+  const totalSpeed = stimuliCount / speedPerStimulus;
+
+  const newStat: PracticeStat = {
+    timestamp: Date.now(),
+    modeKey: `${stimuliCount} stimuli`,
+    speed: totalSpeed,
+  };
+
+  saveStat(newStat);
+}
+
+interface StatsPopupProps {
+  onClose: () => void;
+}
+
+function StatsPopup({ onClose }: StatsPopupProps) {
+  const stats = loadStats();
+  console.log("Loaded stats:", stats);
+  // Group stats by modeKey
+  const grouped = stats.reduce((acc, s) => {
+    if (!acc[s.modeKey]) acc[s.modeKey] = [];
+    acc[s.modeKey].push(s);
+    return acc;
+  }, {} as Record<string, PracticeStat[]>);
+
+  // Sort each group by timestamp
+  Object.values(grouped).forEach(arr => arr.sort((a, b) => a.timestamp - b.timestamp));
+
+  // Get all unique timestamps sorted
+  const timestamps = Array.from(new Set(stats.map(s => s.timestamp))).sort((a, b) => a - b);
+
+  // Create labels for x-axis
+  const labels = timestamps.map(t => new Date(t).toLocaleString());
+
+  // Build datasets aligned to timestamps
+  const datasets = Object.keys(grouped).map((modeKey, i) => {
+    const dataForMode = grouped[modeKey];
+    const speedMap = new Map(dataForMode.map(s => [s.timestamp, s.speed]));
+    return {
+      label: modeKey,
+      data: timestamps.map(ts => speedMap.get(ts) ?? null),
+      fill: false,
+      borderColor: `hsl(${i * 70}, 70%, 50%)`,
+      tension: 0.1,
+    };
+  });
+
+  const data = {
+    labels,
+    datasets,
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-xl p-6 max-w-4xl w-full shadow-lg">
+        <h2 className="text-xl font-bold mb-4">Practice Statistics</h2>
+        <Line data={data} />
+        <div className="mt-6 text-right">
+          <button
+            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            onClick={onClose}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
   // --- Sorting helpers ---
   const sortSequenceByPattern = (
@@ -208,6 +349,7 @@ const NSortGame: React.FC = () => {
     });
     return combined;
   };
+
 
   // --- Game control ---
   const startGame = () => {
@@ -287,7 +429,7 @@ const NSortGame: React.FC = () => {
     const countInGenerated = sequencesByType[type].filter(
       (s) => s.id === stimulus.id
     ).length;
-    if (countInUser >= countInGenerated) return;
+   // if (countInUser >= countInGenerated) return; NO HEHEHEHE
 
     setUserSequences((prev) => ({
       ...prev,
@@ -330,10 +472,17 @@ const NSortGame: React.FC = () => {
     if (allCorrect) {
       setScore((prev) => prev + level * 10);
       setStreak((prev) => prev + 1);
+      
     } else {
       setStreak(0);
     }
+    onPracticeComplete({
+        correct: allCorrect,
+        stimuliCount: selectedStimulusTypes.length,
+        speedPerStimulus: speed,
+    });
     setGameState("result");
+
   };
 
   // Auto-check when all selected
@@ -422,128 +571,145 @@ const NSortGame: React.FC = () => {
         </div>
 
         {/* --- SETUP --- */}
-        {gameState === "setup" && (
-          <section className={`mt-6 p-6 ${sectionCard}`}>
-            <h2 className="flex items-center text-2xl md:text-3xl font-semibold mb-6 text-purple-700">
-              <Settings className="w-7 h-7 mr-3" />
-              Game Settings
-            </h2>
+            {gameState === "setup" && (
+    <section className={`mt-6 p-6 ${sectionCard}`}>
+        <h2 className="flex items-center text-2xl md:text-3xl font-semibold mb-6 text-purple-700">
+        <Settings className="w-7 h-7 mr-3" />
+        Game Settings
+        </h2>
 
-            <div className="grid lg:grid-cols-2 gap-8">
-              {/* Level */}
-              <div className="p-5 rounded-xl bg-gradient-to-br from-purple-50 to-white border border-purple-100 shadow-sm">
-                <label className="block text-gray-700 font-medium mb-2">
-                  Level (N = <span className="text-purple-700">{level}</span>)
-                </label>
-                <input
-                  type="range"
-                  min={2}
-                  max={9}
-                  step={1}
-                  value={level}
-                  onChange={(e) => setLevel(parseInt(e.target.value))}
-                  className="w-full accent-purple-600 cursor-pointer"
-                  aria-label="Level"
-                />
-                <div className="mt-1 text-sm text-gray-500">
-                  Number of stimuli per selected type.
-                </div>
-              </div>
-
-              {/* Speed */}
-              <div className="p-5 rounded-xl bg-gradient-to-br from-pink-50 to-white border border-purple-100 shadow-sm">
-                <label className="block text-gray-700 font-medium mb-2">
-                  Speed <span className="text-gray-500">(seconds per stimulus)</span>
-                </label>
-                <input
-                  type="range"
-                  min={0.75}
-                  max={4}
-                  step={0.25}
-                  value={speed}
-                  onChange={(e) => setSpeed(parseFloat(e.target.value))}
-                  className="w-full accent-purple-600 cursor-pointer"
-                  aria-label="Speed"
-                />
-                <div className="mt-1 text-sm text-gray-500">
-                  {speed.toFixed(2)}s per stimulus
-                </div>
-              </div>
+        <div className="grid lg:grid-cols-2 gap-8">
+        {/* Level */}
+        <div className="p-5 rounded-xl bg-gradient-to-br from-purple-50 to-white border border-purple-100 shadow-sm">
+            <label className="block text-gray-700 font-medium mb-2">
+            Level (N = <span className="text-purple-700">{level}</span>)
+            </label>
+            <input
+            type="range"
+            min={2}
+            max={9}
+            step={1}
+            value={level}
+            onChange={(e) => setLevel(parseInt(e.target.value))}
+            className="w-full accent-purple-600 cursor-pointer"
+            aria-label="Level"
+            />
+            <div className="mt-1 text-sm text-gray-500">
+            Number of stimuli per selected type.
             </div>
+        </div>
 
-            {/* Stimulus types */}
-            <div className="mt-8 p-5 rounded-xl bg-gradient-to-br from-indigo-50 to-white border border-purple-100 shadow-sm">
-              <label className="block text-gray-700 font-medium mb-3">
-                Select Stimulus Types
-              </label>
-              <div className="flex flex-wrap gap-4">
-                {(Object.keys(stimuli) as StimulusType[]).map((type) => {
-                  const active = selectedStimulusTypes.includes(type);
-                  return (
-                    <button
-                      key={type}
-                      onClick={() => handleStimulusTypeToggle(type)}
-                      className={`px-4 py-2 rounded-xl border transition-all ${
-                        active
-                          ? "bg-purple-600 text-white border-purple-700 shadow"
-                          : "bg-white text-gray-700 border-gray-200 hover:border-purple-300 hover:shadow-sm"
-                      }`}
-                      aria-pressed={active}
-                    >
-                      <span className="capitalize">{type}</span>
-                    </button>
-                  );
-                })}
-              </div>
+        {/* Speed */}
+        <div className="p-5 rounded-xl bg-gradient-to-br from-pink-50 to-white border border-purple-100 shadow-sm">
+            <label className="block text-gray-700 font-medium mb-2">
+            Speed <span className="text-gray-500">(seconds per stimulus)</span>
+            </label>
+            <input
+            type="range"
+            min={0.25}
+            max={4}
+            step={0.25}
+            value={speed}
+            onChange={(e) => setSpeed(parseFloat(e.target.value))}
+            className="w-full accent-purple-600 cursor-pointer"
+            aria-label="Speed"
+            />
+            <div className="mt-1 text-sm text-gray-500">
+            {speed.toFixed(2)}s per stimulus
             </div>
+        </div>
+        </div>
 
-            {/* Sorting patterns */}
-            <div className="mt-8 p-5 rounded-xl bg-gradient-to-br from-amber-50 to-white border border-purple-100 shadow-sm">
-              <label className="block text-gray-700 font-medium mb-3">
-                Sorting Pattern per Stimulus Type
-              </label>
-              <div className="flex flex-wrap gap-4">
-                {selectedStimulusTypes.map((type) => (
-                  <div
-                    key={type}
-                    className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm"
-                  >
-                    <span className="font-semibold capitalize text-purple-700">
-                      {type}
-                    </span>
-                    <select
-                      className="rounded-md border border-gray-200 px-2 py-1 text-gray-800 hover:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-300"
-                      value={sortingPatterns[type]}
-                      onChange={(e) =>
-                        handleSortingPatternChange(
-                          type,
-                          e.target.value as SortingPattern
-                        )
-                      }
-                      aria-label={`Sorting pattern for ${type}`}
-                    >
-                      {availableSortingPatterns[type].map(({ key, label }) => (
-                        <option key={key} value={key}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+        {/* Extra Action Buttons */}
+        <div className="flex justify-center gap-4 mt-8">
+        <button
+            onClick={() => setShowAdvanced(true)}
+            className="px-5 py-2.5 bg-purple-200 hover:bg-purple-300 text-purple-800 font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+        >
+            ⚙️ Advanced Settings
+        </button>
+
+        <button
+            onClick={() => setShowStats(true)}
+            className="px-5 py-2.5 bg-pink-200 hover:bg-pink-300 text-pink-800 font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+        >
+            📊 Show Stats
+        </button>
+        </div>
+
+        {/* Stimulus types */}
+        <div className="mt-8 p-5 rounded-xl bg-gradient-to-br from-indigo-50 to-white border border-purple-100 shadow-sm">
+        <label className="block text-gray-700 font-medium mb-3">
+            Select Stimulus Types
+        </label>
+        <div className="flex flex-wrap gap-4">
+            {(Object.keys(stimuli) as StimulusType[]).map((type) => {
+            const active = selectedStimulusTypes.includes(type);
+            return (
+                <button
+                key={type}
+                onClick={() => handleStimulusTypeToggle(type)}
+                className={`px-4 py-2 rounded-xl border transition-all ${
+                    active
+                    ? "bg-purple-600 text-white border-purple-700 shadow"
+                    : "bg-white text-gray-700 border-gray-200 hover:border-purple-300 hover:shadow-sm"
+                }`}
+                aria-pressed={active}
+                >
+                <span className="capitalize">{type}</span>
+                </button>
+            );
+            })}
+        </div>
+        </div>
+
+        {/* Sorting patterns */}
+        <div className="mt-8 p-5 rounded-xl bg-gradient-to-br from-amber-50 to-white border border-purple-100 shadow-sm">
+        <label className="block text-gray-700 font-medium mb-3">
+            Sorting Pattern per Stimulus Type
+        </label>
+        <div className="flex flex-wrap gap-4">
+            {selectedStimulusTypes.map((type) => (
+            <div
+                key={type}
+                className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm"
+            >
+                <span className="font-semibold capitalize text-purple-700">
+                {type}
+                </span>
+                <select
+                className="rounded-md border border-gray-200 px-2 py-1 text-gray-800 hover:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                value={sortingPatterns[type]}
+                onChange={(e) =>
+                    handleSortingPatternChange(
+                    type,
+                    e.target.value as SortingPattern
+                    )
+                }
+                aria-label={`Sorting pattern for ${type}`}
+                >
+                {availableSortingPatterns[type].map(({ key, label }) => (
+                    <option key={key} value={key}>
+                    {label}
+                    </option>
                 ))}
-              </div>
+                </select>
             </div>
+            ))}
+        </div>
+        </div>
 
-            {/* Start */}
-            <div className="mt-10 text-center">
-              <button
-                className="px-10 py-3 font-bold text-white rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-lg active:scale-[0.99] transition-all"
-                onClick={startGame}
-              >
-                Start Game
-              </button>
-            </div>
-          </section>
-        )}
+        {/* Start */}
+        <div className="mt-10 text-center">
+        <button
+            className="px-10 py-3 font-bold text-white rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-lg active:scale-[0.99] transition-all"
+            onClick={startGame}
+        >
+            Start Game
+        </button>
+        </div>
+    </section>
+    )}
 
         {/* --- PRESENTING --- */}
         {gameState === "presenting" && (
@@ -591,6 +757,56 @@ const NSortGame: React.FC = () => {
             </div>
           </section>
         )}
+
+        {/*--- ADVANCED SETTINGS --- */}
+                {showAdvanced && (
+        <div
+                className={`
+                    fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm
+                    [animation:fadeIn_0.2s_ease-out_forwards]
+                    [@keyframes_fadeIn]:from{opacity:0;transform:translateY(-10px)}
+                    [@keyframes_fadeIn]:to{opacity:1;transform:translateY(0)}
+                `}
+            >
+            {/* Modal box */}
+            <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6 relative animate-fadeIn">
+            
+            {/* Close button */}
+            <button
+                onClick={() => setShowAdvanced(false)}
+                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+                aria-label="Close Advanced Settings"
+            >
+                ✖
+            </button>
+
+            <h3 className="text-xl font-semibold mb-6 text-purple-700">
+                Advanced Settings
+            </h3>
+
+            {/* Distinction slider */}
+            <label className="block text-gray-700 font-medium mb-2">
+                Distinction: <span className="text-purple-600">{distinction}%</span>
+            </label>
+            <input
+                type="range"
+                min={1}
+                max={100}
+                step={1}
+                value={distinction}
+                onChange={(e) => setDistinction(parseInt(e.target.value))}
+                className="w-full accent-purple-600 cursor-pointer"
+                aria-label="Distinction"
+            />
+            <div className="mt-1 text-sm text-gray-500">
+                Adjust how distinct each stimulus appears.
+            </div>
+            </div>
+        </div>
+        )}
+
+        {/* --- STATISTICS --- */}
+        {showStats && <StatsPopup onClose={() => setShowStats(false)} />}
 
         {/* --- SORTING --- */}
         {gameState === "sorting" && (
@@ -740,6 +956,9 @@ const NSortGame: React.FC = () => {
         )}
 
         {/* --- RESULT --- */}
+
+        
+
         {gameState === "result" && (
           <section className={`mt-8 p-6 ${sectionCard}`}>
             <div className="flex flex-col items-center gap-2">
@@ -768,6 +987,7 @@ const NSortGame: React.FC = () => {
                 const isTypeCorrect =
                   userSeq.length === correctSeq.length &&
                   userSeq.every((s, i) => s.id === correctSeq[i].id);
+                
 
                 return (
                   <div
