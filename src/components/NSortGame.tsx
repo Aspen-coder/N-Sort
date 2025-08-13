@@ -2,97 +2,13 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Brain, Settings } from "lucide-react";
-import { Line } from "react-chartjs-2";
+import { onPracticeComplete, StatsPopup } from "../data/stats";
+import { Stimulus, StimulusType, UserSequences, SortingPattern, stimuli, availableSortingPatterns, rainbowOrder } from "@/data/types";
+import SortingSection from "@/components/SortingSection";
+import { AdvancedSettingsPopup } from "@/data/settings";
+import { generateSequences, sortSequenceByPattern, getSortedSequences } from "@/utils/sequences";
+import { ChangelogPopup } from "@/data/changelog";
 import "chart.js/auto";
-import { HasLoadingBoundary } from "next/dist/server/app-render/types";
-
-type StimulusType = "colors" | "numbers" | "letters" | "shapes";
-type SortingPattern =
-  | "forward"
-  | "reverse"
-  | "rainbow"
-  | "alphabet"
-  | "reverse_alphabet";
-
-interface Stimulus {
-  id: string;
-  display: string;
-  type: string;
-  sortValue: number;
-  stimulusType?: StimulusType;
-}
-
-interface PracticeStat {
-  timestamp: number; // Date.now()
-  modeKey: string;   // Example: "3-types-N=3"
-  speed: number;     // stimuli per second
-}
-
-
-
-const stimuli: Record<StimulusType, Stimulus[]> = {
-  colors: [
-    { id: "red", display: "#EF4444", type: "color", sortValue: 1 },
-    { id: "orange", display: "#F97316", type: "color", sortValue: 2 },
-    { id: "yellow", display: "#EAB308", type: "color", sortValue: 3 },
-    { id: "green", display: "#22C55E", type: "color", sortValue: 4 },
-    { id: "blue", display: "#3B82F6", type: "color", sortValue: 5 },
-    { id: "purple", display: "#A855F7", type: "color", sortValue: 6 },
-  ],
-  numbers: [
-    { id: "1", display: "1", type: "number", sortValue: 1 },
-    { id: "2", display: "2", type: "number", sortValue: 2 },
-    { id: "3", display: "3", type: "number", sortValue: 3 },
-    { id: "4", display: "4", type: "number", sortValue: 4 },
-    { id: "5", display: "5", type: "number", sortValue: 5 },
-    { id: "6", display: "6", type: "number", sortValue: 6 },
-    { id: "7", display: "7", type: "number", sortValue: 7 },
-    { id: "8", display: "8", type: "number", sortValue: 8 },
-    { id: "9", display: "9", type: "number", sortValue: 9 },
-  ],
-  letters: [
-    { id: "A", display: "A", type: "letter", sortValue: 1 },
-    { id: "B", display: "B", type: "letter", sortValue: 2 },
-    { id: "C", display: "C", type: "letter", sortValue: 3 },
-    { id: "D", display: "D", type: "letter", sortValue: 4 },
-    { id: "E", display: "E", type: "letter", sortValue: 5 },
-    { id: "F", display: "F", type: "letter", sortValue: 6 },
-    { id: "G", display: "G", type: "letter", sortValue: 7 },
-    { id: "H", display: "H", type: "letter", sortValue: 8 },
-  ],
-  shapes: [
-    { id: "circle", display: "●", type: "shape", sortValue: 1 },
-    { id: "square", display: "■", type: "shape", sortValue: 2 },
-    { id: "triangle", display: "▲", type: "shape", sortValue: 3 },
-    { id: "diamond", display: "♦", type: "shape", sortValue: 4 },
-    { id: "star", display: "★", type: "shape", sortValue: 5 },
-    { id: "heart", display: "♥", type: "shape", sortValue: 6 },
-    { id: "club", display: "♣", type: "shape", sortValue: 7 },
-    { id: "spade", display: "♠", type: "shape", sortValue: 8 },
-  ],
-};
-
-const availableSortingPatterns: Record<
-  StimulusType,
-  { key: SortingPattern; label: string }[]
-> = {
-  colors: [{ key: "rainbow", label: "Rainbow (ROYGBIV)" }],
-  numbers: [
-    { key: "forward", label: "Forward (1→9)" },
-    { key: "reverse", label: "Reverse (9→1)" },
-  ],
-  letters: [
-    { key: "alphabet", label: "Forward Alphabetical (A→H)" },
-    { key: "reverse_alphabet", label: "Reverse Alphabetical (H→A)" },
-  ],
-  shapes: [
-    { key: "forward", label: "Forward (●→♠)" },
-    { key: "reverse", label: "Reverse (♠→●)" },
-  ],
-};
-
-const rainbowOrder = ["red", "orange", "yellow", "green", "blue", "purple"];
-type UserSequences = Record<StimulusType, Stimulus[]>;
 
 const NSortGame: React.FC = () => {
   const [gameState, setGameState] = useState<
@@ -119,7 +35,6 @@ const NSortGame: React.FC = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
     const [showStats, setShowStats] = useState(false);
     const [distinction, setDistinction] = useState(50); // default 50%
-    const [hasLoaded, setHasLoaded] = useState(false); // for react bugging out
 
   const [speed, setSpeed] = useState(2.0); // seconds per stimulus
 
@@ -148,272 +63,22 @@ const NSortGame: React.FC = () => {
 
   // --- Generation ---
   const generateSequencesByType = useCallback(() => {
-  const newSequences: Record<StimulusType, Stimulus[]> = {
-    colors: [],
-    numbers: [],
-    letters: [],
-    shapes: [],
-  };
+  return generateSequences(selectedStimulusTypes, level, distinction);
+}, [selectedStimulusTypes, level, distinction]);
 
-  selectedStimulusTypes.forEach((type) => {
-    const pool = stimuli[type];
-    const seq: Stimulus[] = [];
+// Changelog helpers
+const [showChangelog, setShowChangelog] = useState(false);
 
-    for (let i = 0; i < level; i++) {
-      // Distinction bias: probability to avoid duplicates
-      let candidate: Stimulus;
-      if (Math.random() < distinction / 100) {
-        // Pick something NOT already used in this sequence (if possible)
-        const unused = pool.filter(
-          (stim) => !seq.some((s) => s.id === stim.id)
-        );
-        if (unused.length > 0) {
-          candidate = unused[Math.floor(Math.random() * unused.length)];
-        } else {
-          candidate = pool[Math.floor(Math.random() * pool.length)];
-        }
-      } else {
-        // No bias — pick freely
-        candidate = pool[Math.floor(Math.random() * pool.length)];
-      }
 
-      seq.push({ ...candidate, stimulusType: type });
-    }
 
-    newSequences[type] = seq;
-  });
 
-  return newSequences;
-}, [level, selectedStimulusTypes, distinction]);
+// stats helpers
 
-    // stats helpers
-function savePracticeStat(selectedStimulusTypes: string[], N: number, speedSetting: number, correctCount: number) {
-  const modeKey = `${selectedStimulusTypes.length}-types-N=${N}`;
-
-  // Calculate average stimuli/second for correct answers only
-  const avgSpeed = correctCount / speedSetting; // stimuli per second
-
-  const newStat: PracticeStat = {
-    timestamp: Date.now(),
-    modeKey,
-    speed: avgSpeed,
-  };
-
-  // Load existing stats
-  const existing = JSON.parse(localStorage.getItem("nsort_stats") || "[]");
-
-  // Add new record
-  existing.push(newStat);
-
-  // Save back to localStorage
-  localStorage.setItem("nsort_stats", JSON.stringify(existing));
-}
-
-function loadStats(): PracticeStat[] {
-  return JSON.parse(localStorage.getItem("practiceStats") || "[]");
-}
-
-function saveStat(newStat: PracticeStat) {
-  const stats = loadStats();
-  console.log("SAVING STAT!!");
-  stats.push(newStat);
-  localStorage.setItem("practiceStats", JSON.stringify(stats));
-}
-
-function onPracticeComplete(params: { correct: boolean; stimuliCount: number; speedPerStimulus: number }) {
-  const { correct, stimuliCount, speedPerStimulus } = params;
-  if (!correct) return;
-
-  const totalSpeed = stimuliCount / speedPerStimulus;
-
-  const newStat: PracticeStat = {
-    timestamp: Date.now(),
-    modeKey: `${stimuliCount} stimuli`,
-    speed: totalSpeed,
-  };
-
-  saveStat(newStat);
-}
-
-interface StatsPopupProps {
-  onClose: () => void;
-}
-
-function StatsPopup({ onClose }: StatsPopupProps) {
-  const stats = loadStats();
-  console.log("Loaded stats:", stats);
-  // Group stats by modeKey
-  const grouped = stats.reduce((acc, s) => {
-    if (!acc[s.modeKey]) acc[s.modeKey] = [];
-    acc[s.modeKey].push(s);
-    return acc;
-  }, {} as Record<string, PracticeStat[]>);
-
-  // Sort each group by timestamp
-  Object.values(grouped).forEach(arr => arr.sort((a, b) => a.timestamp - b.timestamp));
-
-  // Get all unique timestamps sorted
-  const timestamps = Array.from(new Set(stats.map(s => s.timestamp))).sort((a, b) => a - b);
-
-  // Create labels for x-axis
-  const labels = timestamps.map(t => new Date(t).toLocaleString());
-
-  // Build datasets aligned to timestamps
-  const datasets = Object.keys(grouped).map((modeKey, i) => {
-    const dataForMode = grouped[modeKey];
-    const speedMap = new Map(dataForMode.map(s => [s.timestamp, s.speed]));
-    return {
-      label: modeKey,
-      data: timestamps.map(ts => speedMap.get(ts) ?? null),
-      fill: false,
-      borderColor: `hsl(${i * 70}, 70%, 50%)`,
-      tension: 0.1,
-    };
-  });
-
-  const data = {
-    labels,
-    datasets,
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl p-6 max-w-4xl w-full shadow-lg">
-        <h2 className="text-xl font-bold mb-4">Practice Statistics</h2>
-        <Line data={data} />
-        <div className="mt-6 text-right">
-          <button
-            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-            onClick={onClose}
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 // -- Advanced Settings Popup
 const [disableAnimation, setDisableAnimation] = useState<boolean>(false);
 
-interface AdvancedSettingsPopupProps {
-  onClose: () => void;
-}
 
-function AdvancedSettingsPopup({ onClose }: { onClose: () => void }) {
-  // Load saved values from localStorage first, fallback to global variables
-  const savedDistinction = localStorage.getItem("distinction");
-  const savedDisableAnimation = localStorage.getItem("disableAnimation");
-
-  const [localDistinction, setLocalDistinction] = useState(
-    savedDistinction !== null ? Number(savedDistinction) : distinction
-  );
-
-  const [localDisableAnimation, setLocalDisableAnimation] = useState(
-    savedDisableAnimation !== null ? savedDisableAnimation === "true" : disableAnimation
-  );
-
-  // Commit changes when closing
-  const handleClose = () => {
-    setDistinction(localDistinction); // update global
-    setDisableAnimation(localDisableAnimation); // update global
-    localStorage.setItem("distinction", localDistinction.toString());
-    localStorage.setItem("disableAnimation", localDisableAnimation.toString());
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-lg">
-        <h2 className="text-xl font-bold mb-4">Advanced Settings</h2>
-
-        {/* Distinction slider */}
-        <label className="block mb-4">
-          <span className="text-gray-700">Distinction: {localDistinction}%</span>
-          <input
-            type="range"
-            min={1}
-            max={100}
-            value={localDistinction}
-            onChange={(e) => setLocalDistinction(Number(e.target.value))}
-            className="w-full mt-2"
-          />
-        </label>
-
-        {/* Disable animation checkbox */}
-        <label className="flex items-center gap-2 mb-6">
-          <input
-            type="checkbox"
-            checked={localDisableAnimation}
-            onChange={(e) => setLocalDisableAnimation(e.target.checked)}
-          />
-          <span className="text-gray-700">Disable stimulus fade-in animation</span>
-        </label>
-
-        <div className="mt-6 text-right">
-          <button
-            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-            onClick={handleClose}
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-
-
-
-
-
-
-
-  // --- Sorting helpers ---
-  const sortSequenceByPattern = (
-    seq: Stimulus[],
-    type: StimulusType,
-    pattern: SortingPattern
-  ) => {
-    const group = [...seq];
-    switch (pattern) {
-      case "forward":
-        return group.sort((a, b) => a.sortValue - b.sortValue);
-      case "reverse":
-        return group.sort((a, b) => b.sortValue - a.sortValue);
-      case "rainbow":
-        if (type === "colors") {
-          return group.sort(
-            (a, b) => rainbowOrder.indexOf(a.id) - rainbowOrder.indexOf(b.id)
-          );
-        }
-        return group.sort((a, b) => a.sortValue - b.sortValue);
-      case "alphabet":
-        return group.sort((a, b) => a.id.localeCompare(b.id));
-      case "reverse_alphabet":
-        return group.sort((a, b) => b.id.localeCompare(a.id));
-      default:
-        return group.sort((a, b) => a.sortValue - b.sortValue);
-    }
-  };
-
-  const getSortedSequences = (): Record<StimulusType, Stimulus[]> => {
-    const sorted: Record<StimulusType, Stimulus[]> = {
-      colors: [],
-      numbers: [],
-      letters: [],
-      shapes: [],
-    };
-    selectedStimulusTypes.forEach((type) => {
-      const seq = sequencesByType[type] || [];
-      const pattern = sortingPatterns[type] || "forward";
-      sorted[type] = sortSequenceByPattern(seq, type, pattern);
-    });
-    return sorted;
-  };
-
+  
   // Available pool for sorting (compact tiles)
   const getCombinedPool = (): Stimulus[] => {
     const combined: Stimulus[] = [];
@@ -533,7 +198,7 @@ function AdvancedSettingsPopup({ onClose }: { onClose: () => void }) {
 
   // --- Check answers ---
   const checkAnswers = () => {
-    const sortedSequences = getSortedSequences();
+    const sortedSequences = getSortedSequences(selectedStimulusTypes, sequencesByType, sortingPatterns);
     let allCorrect = true;
 
     for (const type of selectedStimulusTypes) {
@@ -557,9 +222,10 @@ function AdvancedSettingsPopup({ onClose }: { onClose: () => void }) {
       setStreak(0);
     }
     onPracticeComplete({
-        correct: allCorrect,
-        stimuliCount: selectedStimulusTypes.length,
-        speedPerStimulus: speed,
+    correct: allCorrect,
+    stimuliCount: selectedStimulusTypes.length,
+    sequenceLength: maxSequenceLength,  // add this
+    speedPerStimulus: speed,
     });
     setGameState("result");
 
@@ -715,6 +381,13 @@ function AdvancedSettingsPopup({ onClose }: { onClose: () => void }) {
         >
             📊 Show Stats
         </button>
+
+        <button
+            onClick={() => setShowChangelog(true)} // <-- new state for your popup
+            className="px-5 py-2.5 bg-blue-200 hover:bg-blue-300 text-blue-800 font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+        >
+            📝 View Changelog
+        </button>
         </div>
 
         {/* Stimulus types */}
@@ -847,6 +520,10 @@ function AdvancedSettingsPopup({ onClose }: { onClose: () => void }) {
         {/*--- ADVANCED SETTINGS --- */}
                {showAdvanced && (
             <AdvancedSettingsPopup
+                distinction={distinction}
+                setDistinction={setDistinction}
+                disableAnimation={disableAnimation}
+                setDisableAnimation={setDisableAnimation}
                 onClose={() => setShowAdvanced(false)}
             />
             )}
@@ -854,152 +531,31 @@ function AdvancedSettingsPopup({ onClose }: { onClose: () => void }) {
         {/* --- STATISTICS --- */}
         {showStats && <StatsPopup onClose={() => setShowStats(false)} />}
 
+        {/* --- CHANGELOG --- */}
+        {showChangelog && (
+            <ChangelogPopup onClose={() => setShowChangelog(false)} />
+        )}
+
         {/* --- SORTING --- */}
         {gameState === "sorting" && (
-          <section className="mt-8 grid lg:grid-cols-5 gap-6">
-            {/* User sequences */}
-            <div className={`lg:col-span-2 p-5 ${sectionCard}`}>
-              <div className="text-gray-800 font-semibold text-lg mb-4">
-                Build the sorted sequences
-              </div>
-
-              <div className="flex flex-col gap-5">
-                {selectedStimulusTypes.map((type) => (
-                  <div
-                    key={type}
-                    className="rounded-xl border border-purple-100 bg-gradient-to-br from-purple-50 to-white p-3"
-                  >
-                    <div className="mb-2 flex items-center justify-between">
-                      <div className="font-semibold text-purple-700 capitalize">
-                        {type} sequence
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Pattern:{" "}
-                        <span className="font-semibold">
-                          {
-                            availableSortingPatterns[type].find(
-                              (p) => p.key === sortingPatterns[type]
-                            )?.label
-                          }
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 min-h-[56px] rounded-lg border border-purple-200 bg-white p-2">
-                      {userSequences[type].length === 0 && (
-                        <div className="text-gray-400 select-none">
-                          Tap tiles below to add…
-                        </div>
-                      )}
-
-                      {userSequences[type].map((stimulus, index) => (
-                        <button
-                          key={`${stimulus.id}-${index}`}
-                          onClick={() => {
-                            // Remove specific tile from this sequence
-                            setUserSequences((prev) => ({
-                              ...prev,
-                              [type]: prev[type].filter((_, i) => i !== index),
-                            }));
-                            // Remove last matching history item for this stim/type
-                            setSelectionHistory((prev) => {
-                              const idx = [...prev]
-                                .reverse()
-                                .findIndex(
-                                  (sel) =>
-                                    sel.type === type &&
-                                    sel.stimulus.id === stimulus.id
-                                );
-                              if (idx === -1) return prev;
-                              const realIdx = prev.length - 1 - idx;
-                              return [
-                                ...prev.slice(0, realIdx),
-                                ...prev.slice(realIdx + 1),
-                              ];
-                            });
-                          }}
-                          title="Click to remove"
-                          className="transition-transform active:scale-95"
-                          aria-label={`Remove ${stimulus.id} from ${type} sequence`}
-                        >
-                          {renderStimulus(
-                            stimulus,
-                            "small",
-                            "hover:ring-2 hover:ring-purple-300"
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-4 flex gap-3">
-                <button
-                  className="px-4 py-2 rounded-lg bg-rose-500 text-white font-medium hover:bg-rose-600 transition-colors disabled:opacity-50"
-                  onClick={undoLastSelection}
-                  disabled={selectionHistory.length === 0}
-                >
-                  Undo Last
-                </button>
-                <button
-                  className="px-4 py-2 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700 transition-colors"
-                  onClick={checkAnswers}
-                >
-                  Check Now
-                </button>
-              </div>
-            </div>
-
-            {/* Pool */}
-            <div className={`lg:col-span-3 p-5 ${sectionCard}`}>
-              <div className="text-gray-800 font-semibold text-lg mb-4">
-                Available tiles
-              </div>
-              <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
-                {getCombinedPool().map((stimulus, index) => {
-                  const type = stimulus.stimulusType!;
-                  const countInUser = userSequences[type].filter(
-                    (s) => s.id === stimulus.id
-                  ).length;
-                  const countInGenerated = sequencesByType[type].filter(
-                    (s) => s.id === stimulus.id
-                  ).length;
-                  const disabled = false;
-
-                  return (
-                    <button
-                      key={`${stimulus.id}-${index}`}
-                      onClick={() => !disabled && handleStimulusClick(stimulus)}
-                      disabled={disabled}
-                      aria-label={`Select ${stimulus.id} (${type})`}
-                      className={`rounded-xl border p-1 shadow-sm transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${
-                        !disabled
-                          ? "hover:scale-105 hover:shadow"
-                          : "opacity-60"
-                      }`}
-                      title={
-                        disabled
-                          ? "No more of this tile were shown"
-                          : `Add ${stimulus.id} to ${type}`
-                      }
-                    >
-                      {renderStimulus(
-                        stimulus,
-                        "small",
-                        !disabled ? "ring-1 ring-black/5" : ""
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="mt-3 text-xs text-gray-500">
-                Tip: You can remove a tile from your sequence by clicking it.
-              </div>
-            </div>
-          </section>
+        <SortingSection
+            sectionCard={sectionCard}
+            selectedStimulusTypes={selectedStimulusTypes}
+            availableSortingPatterns={availableSortingPatterns}
+            sortingPatterns={sortingPatterns}
+            userSequences={userSequences}
+            setUserSequences={setUserSequences}
+            selectionHistory={selectionHistory}
+            setSelectionHistory={setSelectionHistory}
+            undoLastSelection={undoLastSelection}
+            checkAnswers={checkAnswers}
+            getCombinedPool={getCombinedPool}
+            sequencesByType={sequencesByType}
+            handleStimulusClick={handleStimulusClick}
+            renderStimulus={renderStimulus}
+        />
         )}
+
 
         {/* --- RESULT --- */}
 
@@ -1029,7 +585,7 @@ function AdvancedSettingsPopup({ onClose }: { onClose: () => void }) {
             <div className="mt-8 grid md:grid-cols-2 gap-6">
               {selectedStimulusTypes.map((type) => {
                 const userSeq = userSequences[type];
-                const correctSeq = getSortedSequences()[type];
+                const correctSeq = getSortedSequences(selectedStimulusTypes, sequencesByType, sortingPatterns)[type];
                 const isTypeCorrect =
                   userSeq.length === correctSeq.length &&
                   userSeq.every((s, i) => s.id === correctSeq[i].id);
