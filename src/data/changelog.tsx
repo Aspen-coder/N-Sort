@@ -28,6 +28,20 @@ export function ChangelogPopup({ onClose }: ChangelogPopupProps) {
         version: "v1.4",
         description:
         "Changelog added :D, Also fixed shape sort so you can now sort based on number of sides per shape as per user Icybanny's request"
+    },
+    {
+        version: "v1.5",
+        description:
+        "Optimization and refactoring changes. Dropped build speed from 12.1s to 2.9s and cut file size by almost half for main code"
+    },
+    {
+        version: "v1.6",
+        description: "Further refactoring for readability. Main code file is now 445 lines long, far cry from max 1.5k. "
+    },
+    {
+      version: "v1.7",
+      description: "Added vercel analytics"
+      
     }
   ];
 
