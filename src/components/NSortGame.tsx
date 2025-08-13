@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Brain, Settings } from "lucide-react";
 import { Line } from "react-chartjs-2";
 import "chart.js/auto";
+import { HasLoadingBoundary } from "next/dist/server/app-render/types";
 
 type StimulusType = "colors" | "numbers" | "letters" | "shapes";
 type SortingPattern =
@@ -118,6 +119,7 @@ const NSortGame: React.FC = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
     const [showStats, setShowStats] = useState(false);
     const [distinction, setDistinction] = useState(50); // default 50%
+    const [hasLoaded, setHasLoaded] = useState(false); // for react bugging out
 
   const [speed, setSpeed] = useState(2.0); // seconds per stimulus
 
@@ -291,6 +293,82 @@ function StatsPopup({ onClose }: StatsPopupProps) {
     </div>
   );
 }
+// -- Advanced Settings Popup
+const [disableAnimation, setDisableAnimation] = useState<boolean>(false);
+
+interface AdvancedSettingsPopupProps {
+  onClose: () => void;
+}
+
+function AdvancedSettingsPopup({ onClose }: { onClose: () => void }) {
+  // Load saved values from localStorage first, fallback to global variables
+  const savedDistinction = localStorage.getItem("distinction");
+  const savedDisableAnimation = localStorage.getItem("disableAnimation");
+
+  const [localDistinction, setLocalDistinction] = useState(
+    savedDistinction !== null ? Number(savedDistinction) : distinction
+  );
+
+  const [localDisableAnimation, setLocalDisableAnimation] = useState(
+    savedDisableAnimation !== null ? savedDisableAnimation === "true" : disableAnimation
+  );
+
+  // Commit changes when closing
+  const handleClose = () => {
+    setDistinction(localDistinction); // update global
+    setDisableAnimation(localDisableAnimation); // update global
+    localStorage.setItem("distinction", localDistinction.toString());
+    localStorage.setItem("disableAnimation", localDisableAnimation.toString());
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-lg">
+        <h2 className="text-xl font-bold mb-4">Advanced Settings</h2>
+
+        {/* Distinction slider */}
+        <label className="block mb-4">
+          <span className="text-gray-700">Distinction: {localDistinction}%</span>
+          <input
+            type="range"
+            min={1}
+            max={100}
+            value={localDistinction}
+            onChange={(e) => setLocalDistinction(Number(e.target.value))}
+            className="w-full mt-2"
+          />
+        </label>
+
+        {/* Disable animation checkbox */}
+        <label className="flex items-center gap-2 mb-6">
+          <input
+            type="checkbox"
+            checked={localDisableAnimation}
+            onChange={(e) => setLocalDisableAnimation(e.target.checked)}
+          />
+          <span className="text-gray-700">Disable stimulus fade-in animation</span>
+        </label>
+
+        <div className="mt-6 text-right">
+          <button
+            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            onClick={handleClose}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+
+
 
 
   // --- Sorting helpers ---
@@ -382,12 +460,14 @@ function StatsPopup({ onClose }: StatsPopupProps) {
     }
 
     setShowingStimulus(true);
-
+    
     const showTimer = setTimeout(() => {
       setShowingStimulus(false);
+      const pauseDuration = disableAnimation ? 50 : 280;
+
       const pauseTimer = setTimeout(() => {
         setCurrentPresentIndex((prev) => prev + 1);
-      }, 280);
+      }, pauseDuration);
       return () => clearTimeout(pauseTimer);
     }, speed * 1000);
 
@@ -733,16 +813,22 @@ function StatsPopup({ onClose }: StatsPopupProps) {
                       {type}
                     </div>
                     {stim && showingStimulus ? (
-                      <div
-                        className="transition-all duration-300 ease-out scale-95 opacity-0 animate-[fadeIn_0.3s_ease-out_forwards]"
-                        key={`${type}-${currentPresentIndex}-${stim.id}`}
-                      >
-                        {renderStimulus(
-                          stim,
-                          "large",
-                          "shadow-md ring-1 ring-purple-500/20"
-                        )}
-                      </div>
+                   <div
+                    className={`${
+                        disableAnimation
+                        ? "opacity-100 scale-100 transition-none" // no animation at all
+                        : "transition-all duration-100 ease-out scale-95 opacity-0 animate-[fadeIn_0.1s_ease-out_forwards]"
+                    }`}
+                    key={`${type}-${currentPresentIndex}-${stim.id}-${disableAnimation ? "noanim" : "anim"}`}
+                    >
+                    {showingStimulus && renderStimulus(
+                        stim,
+                        "large",
+                        "shadow-md ring-1 ring-purple-500/20"
+                    )}
+                    </div>
+
+
                     ) : (
                       <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl border border-dashed border-purple-200 bg-white/70" />
                     )}
@@ -759,51 +845,11 @@ function StatsPopup({ onClose }: StatsPopupProps) {
         )}
 
         {/*--- ADVANCED SETTINGS --- */}
-                {showAdvanced && (
-        <div
-                className={`
-                    fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm
-                    [animation:fadeIn_0.2s_ease-out_forwards]
-                    [@keyframes_fadeIn]:from{opacity:0;transform:translateY(-10px)}
-                    [@keyframes_fadeIn]:to{opacity:1;transform:translateY(0)}
-                `}
-            >
-            {/* Modal box */}
-            <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6 relative animate-fadeIn">
-            
-            {/* Close button */}
-            <button
-                onClick={() => setShowAdvanced(false)}
-                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
-                aria-label="Close Advanced Settings"
-            >
-                ✖
-            </button>
-
-            <h3 className="text-xl font-semibold mb-6 text-purple-700">
-                Advanced Settings
-            </h3>
-
-            {/* Distinction slider */}
-            <label className="block text-gray-700 font-medium mb-2">
-                Distinction: <span className="text-purple-600">{distinction}%</span>
-            </label>
-            <input
-                type="range"
-                min={1}
-                max={100}
-                step={1}
-                value={distinction}
-                onChange={(e) => setDistinction(parseInt(e.target.value))}
-                className="w-full accent-purple-600 cursor-pointer"
-                aria-label="Distinction"
+               {showAdvanced && (
+            <AdvancedSettingsPopup
+                onClose={() => setShowAdvanced(false)}
             />
-            <div className="mt-1 text-sm text-gray-500">
-                Adjust how distinct each stimulus appears.
-            </div>
-            </div>
-        </div>
-        )}
+            )}
 
         {/* --- STATISTICS --- */}
         {showStats && <StatsPopup onClose={() => setShowStats(false)} />}
