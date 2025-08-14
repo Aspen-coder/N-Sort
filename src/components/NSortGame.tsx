@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Brain } from "lucide-react";
 import { onPracticeComplete, StatsPopup } from "../data/stats";
 import { Stimulus, StimulusType, UserSequences, SortingPattern, stimuli, availableSortingPatterns, rainbowOrder } from "@/data/types";
@@ -164,8 +164,13 @@ const [disableAnimation, setDisableAnimation] = useState<boolean>(false);
     }));
   };
 
+
+  const lastClickRef = useRef<number>(0);
   // --- Sorting clicks ---
   const handleStimulusClick = (stimulus: Stimulus) => {
+    const now = Date.now();
+    if (now - lastClickRef.current < 150) return; // 150 ms delay
+    lastClickRef.current = now;
     if (gameState !== "sorting") return;
     if (!stimulus.stimulusType) return;
 

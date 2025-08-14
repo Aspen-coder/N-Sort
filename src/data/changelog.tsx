@@ -42,6 +42,10 @@ export function ChangelogPopup({ onClose }: ChangelogPopupProps) {
       version: "v1.7",
       description: "Added vercel analytics"
       
+    },
+    {
+      version: "v1.8",
+      description: "Updated meta-data. Also added more numbers(9 -> 20) because mush somehow reached D8S (dual-8-sort). Added a delay between clicking in results section(also cus of mush) so you have to wait 150 ms before click again. Should prevent accidental double clicks.",
     }
   ];
 
