@@ -55,7 +55,7 @@ export function ChangelogPopup({ onClose }: ChangelogPopupProps) {
     },
     {
       version: "v2.0",
-      description: "Sign in authentication added. No signing out tho xD. Login also added. Leaderboard added. Scoring system updated to be more like IQ-based scoring system(100 = standard, points get harder to earn at higher levels). Auto-moving to next round added(shows results for 200 ms). Maybe adding ability to change timer in future."
+      description: "Sign in authentication added. No signing out tho xD. Login also added. Leaderboard added. Scoring system updated to be more like IQ-based scoring system(100 = standard, points get harder to earn at higher levels). Auto-moving to next round added(shows results for 200 ms, user Tim's request). Maybe adding ability to change timer in future."
     }
   ];
 

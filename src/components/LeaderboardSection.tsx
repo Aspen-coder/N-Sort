@@ -5,12 +5,15 @@ import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestor
 import { db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 
+export const dynamic = 'force-dynamic';
+
 interface ScoreEntry {
   username: string;
   score: number;
 }
 
 export default function Leaderboard() {
+  
   const router = useRouter();
   const [scores, setScores] = useState<ScoreEntry[]>([]);
   const [loading, setLoading] = useState(true);
