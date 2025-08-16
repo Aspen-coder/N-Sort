@@ -242,36 +242,42 @@ const [autoNextRound, setAutoNextRound] = useState<boolean>(false);
 
   // --- Check answers ---
   const checkAnswers = () => {
+    const allSequencesFilled = selectedStimulusTypes.every(
+      (type) => (userSequences[type]?.length || 0) === (sequencesByType[type]?.length || 0)
+    );
     const sortedSequences = getSortedSequences(selectedStimulusTypes, sequencesByType, sortingPatterns);
     let allCorrect = true;
     const total : number = maxSequenceLength * selectedStimulusTypes.length;
     let correct : number = 0;
     // count accuracy
-    for (const type of selectedStimulusTypes) {
-      const userSeq = userSequences[type];
-      const correctSeq = sortedSequences[type];
-      for (let i = 0; i < userSeq.length; i++) {
-        if (userSeq[i].sortValue === correctSeq[i].sortValue) { 
-          correct++;
+    if(allSequencesFilled){
+      for (const type of selectedStimulusTypes) {
+        const userSeq = userSequences[type];
+        const correctSeq = sortedSequences[type];
+        for (let i = 0; i < userSeq.length; i++) {
+          if (userSeq[i].sortValue === correctSeq[i].sortValue) { 
+            correct++;
+          }
+        }
+        
+        
+
+        if (
+          userSeq.length !== correctSeq.length ||
+          userSeq.some((stim, idx) => stim.id !== correctSeq[idx].id)
+        ) {
+          allCorrect = false;
+          break;
         }
       }
-      
-      
-
-      if (
-        userSeq.length !== correctSeq.length ||
-        userSeq.some((stim, idx) => stim.id !== correctSeq[idx].id)
-      ) {
-        allCorrect = false;
-        break;
-      }
-    }
+    } else {allCorrect = false; correct = 0;}
     const scoreResultProps : NSortScoreProps = {
       stimuliTypes : selectedStimulusTypes.length,
       sequenceLength : maxSequenceLength,
       presentationSpeed : speed,
       accuracy : (correct / total),
     };
+  
     const scoreResult = calculateNSortScore( scoreResultProps );
     
     if (allCorrect) {
@@ -292,7 +298,7 @@ const [autoNextRound, setAutoNextRound] = useState<boolean>(false);
     speedPerStimulus: speed,
     });
     setGameState("result");
-
+    console.log("Enter results");
   };
 
   // Auto-check when all selected
@@ -309,7 +315,13 @@ const [autoNextRound, setAutoNextRound] = useState<boolean>(false);
       0
     );
 
-    if (totalSelected === totalStimuli && totalStimuli > 0) {
+    // Check each sequence length matches. Thank you TIM
+    const allSequencesFilled = selectedStimulusTypes.every(
+      (type) => (userSequences[type]?.length || 0) === (sequencesByType[type]?.length || 0)
+    );
+
+
+    if (totalSelected === totalStimuli && totalStimuli > 0 && allSequencesFilled) {
       checkAnswers();
     }
   }, [userSequences, gameState, selectedStimulusTypes, sequencesByType, level]);
@@ -496,6 +508,8 @@ const [autoNextRound, setAutoNextRound] = useState<boolean>(false);
             sequencesByType={sequencesByType}
             handleStimulusClick={handleStimulusClick}
             renderStimulus={renderStimulus}
+            autoNextRound={autoNextRound}
+            restartGame={restartGame}
         />
         )}
 

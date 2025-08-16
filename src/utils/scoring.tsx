@@ -40,8 +40,11 @@ export function calculateNSortScore({
   const rawScore = baseDifficulty * accuracy;
   //const iqScore = convertToIQScale(rawScore);
   //let iqScore = 100 + 15 * (1.67 * Math.log(stimuliTypes) + 0.5 * (3 - sequenceLength) + 0.25 * Math.log(presentationSpeed) );
-  const stimPerSecond = (stimuliTypes * sequenceLength) / presentationSpeed;
-  let iqScore = 100 + 20.5 * Math.log(stimPerSecond / 3) + 15.6 * Math.log(stimuliTypes) + 10.5 * Math.log(sequenceLength);
+  {/* THIS IQ SCORE HAS BEEN BROKEN BY EVERYONE */}
+  // const stimPerSecond = (stimuliTypes * sequenceLength) / presentationSpeed;
+  //let iqScore = 100 + 20.5 * Math.log(stimPerSecond / 3) + 15.6 * Math.log(stimuliTypes) + 10.5 * Math.log(sequenceLength);
+  {/* NEW IQ SCORE CALCULATOR */}
+  let iqScore = 100 + 20.5 * Math.log((sequenceLength * stimuliTypes) / 3) + 15.6 * Math.log(stimuliTypes) + 20.5 * Math.log(sequenceLength) - 10 * Math.log(presentationSpeed);
   iqScore *= accuracy;
   
 

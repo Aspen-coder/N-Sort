@@ -65,6 +65,10 @@ export function ChangelogPopup({ onClose }: ChangelogPopupProps) {
     {
       version: "v2.2",
       description: "bug where login button didnt work on mobile(for user Tim). Issue was I didnt add click handling for login button for mobile. Sorry, Tim"
+    },
+    {
+      version: "v2.3",
+      description: "TIM FOUND A BUG AGAIN. Checking only totalstimuli, not each sequence length in check answer, caused indexing issues. Also updating scoring method CUS EVERYONE BROKE IT. Favored speed waayyy too much."
     }
   ];
 

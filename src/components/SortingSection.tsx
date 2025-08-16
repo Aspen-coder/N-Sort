@@ -20,6 +20,8 @@ interface SortingSectionProps {
   sequencesByType: Record<string, Stimulus[]>;
   handleStimulusClick: (stimulus: Stimulus) => void;
   renderStimulus: (stimulus: Stimulus, size: "large" | "small", extraClass?: string) => React.JSX.Element;
+  restartGame: () => void;
+  autoNextRound: boolean;
 }
 
 const SortingSection: React.FC<SortingSectionProps> = ({
@@ -37,6 +39,8 @@ const SortingSection: React.FC<SortingSectionProps> = ({
   sequencesByType,
   handleStimulusClick,
   renderStimulus,
+  restartGame,
+  autoNextRound,
 }) => {
   return (
     <section className="mt-8 grid lg:grid-cols-5 gap-6">
@@ -127,7 +131,10 @@ const SortingSection: React.FC<SortingSectionProps> = ({
           </button>
           <button
             className="px-4 py-2 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700 transition-colors"
-            onClick={checkAnswers}
+            onClick={() => {
+              checkAnswers();
+              
+            }}
           >
             Check Now
           </button>
