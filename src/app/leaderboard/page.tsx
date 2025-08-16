@@ -1,3 +1,5 @@
+"use client";
+
 import Leaderboard from "@/components/LeaderboardSection";
 
 export default function LeaderboardPage(){

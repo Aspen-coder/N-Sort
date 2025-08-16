@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 
 export const dynamic = 'force-dynamic';
 
+
 interface ScoreEntry {
   username: string;
   score: number;
