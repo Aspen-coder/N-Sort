@@ -5,6 +5,8 @@ export interface AdvancedSettingsPopupProps {
   setDistinction: (val: number) => void;
   disableAnimation: boolean;
   setDisableAnimation: (val: boolean) => void;
+  autoNextRound : boolean;
+  setAutoNextRound : (val : boolean) => void;
   onClose: () => void;
 }
 
@@ -14,11 +16,14 @@ export function AdvancedSettingsPopup({
   setDistinction,
   disableAnimation,
   setDisableAnimation,
+  autoNextRound,
+  setAutoNextRound,
   onClose,
 }: AdvancedSettingsPopupProps) {
   // Load saved values from localStorage first, fallback to global variables
   const savedDistinction = localStorage.getItem("distinction");
   const savedDisableAnimation = localStorage.getItem("disableAnimation");
+  const savedAutoNextRound = localStorage.getItem("autoNextRound");
 
   const [localDistinction, setLocalDistinction] = useState(
     savedDistinction !== null ? Number(savedDistinction) : distinction
@@ -28,12 +33,18 @@ export function AdvancedSettingsPopup({
     savedDisableAnimation !== null ? savedDisableAnimation === "true" : disableAnimation
   );
 
+  const [localAutoNextRound, setLocalAutoNextRound] = useState(
+    savedAutoNextRound !== null ? savedAutoNextRound === "true" : autoNextRound
+  );
+
   // Commit changes when closing
   const handleClose = () => {
     setDistinction(localDistinction); // update global
     setDisableAnimation(localDisableAnimation); // update global
+    setAutoNextRound(localAutoNextRound); // update global
     localStorage.setItem("distinction", localDistinction.toString());
     localStorage.setItem("disableAnimation", localDisableAnimation.toString());
+    localStorage.setItem("autoNextRound", localAutoNextRound.toString());
     onClose();
   };
 
@@ -63,6 +74,15 @@ export function AdvancedSettingsPopup({
             onChange={(e) => setLocalDisableAnimation(e.target.checked)}
           />
           <span className="text-gray-700">Disable stimulus fade-in animation</span>
+        </label>
+        {/* Go to next round check box */}
+        <label className="flex items-center gap-2 mb-6">
+          <input
+            type="checkbox"
+            checked={localAutoNextRound}
+            onChange={(e) => setLocalAutoNextRound(e.target.checked)}
+          />
+          <span className="text-gray-700">Automatically move to next round(reload page to stop)</span>
         </label>
 
         <div className="mt-6 text-right">

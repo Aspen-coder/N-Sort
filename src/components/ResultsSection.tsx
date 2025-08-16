@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { StimulusType, Stimulus, SortingPattern } from "@/data/types";
 import { getSortedSequences } from "@/utils/sequences";
 
@@ -10,7 +10,9 @@ interface ResultSectionProps {
   sequencesByType: Record<StimulusType, Stimulus[]>;
   sortingPatterns: Record<StimulusType, SortingPattern>;
   startGame: () => void;
-  setGameState: React.Dispatch<React.SetStateAction<"setup" | "presenting" | "sorting" | "result">>;
+  restartGame: () => void;
+  autoNextRound: boolean;
+  setGameState: React.Dispatch<React.SetStateAction<"setup" | "stimulusSelection" | "presenting" | "sorting" | "result">>;
   sectionCard: string;
   renderStimulus:  (stimulus: Stimulus, size: "small" | "large", extra?: string) => React.JSX.Element;
 }
@@ -24,9 +26,23 @@ export default function ResultSection({
   sortingPatterns,
   renderStimulus,
   startGame,
+  restartGame,
+  autoNextRound,
   setGameState,
   sectionCard,
 }: ResultSectionProps) {
+  const timerRef = useRef<number>(0);
+
+  useEffect(() => {
+    if(autoNextRound){
+      timerRef.current = window.setTimeout(() => {restartGame();}, 200);
+    }
+    return () => {
+      clearTimeout(timerRef.current);
+    }
+  }, [autoNextRound, restartGame]
+
+  );
   return (
     <section className={`mt-8 p-6 ${sectionCard}`}>
                 <div className="flex flex-col items-center gap-2">

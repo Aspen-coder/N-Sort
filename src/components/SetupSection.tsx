@@ -1,5 +1,12 @@
 import { StimulusType, SortingPattern, Stimulus } from "@/data/types";
 import { Settings } from "lucide-react";
+import { Card, CardProps } from "@/utils/card";
+import { useRouter } from "next/navigation";
+
+
+
+ 
+
 
  interface SetupSectionProps {
   level: number;
@@ -36,12 +43,64 @@ export function SetupSection({
   stimuli,
   availableSortingPatterns,
 }: SetupSectionProps) {
+   const router = useRouter();
+ const cards: CardProps[] = [
+  {
+      title: "Statistics",
+      icon: "📊",
+      gradient: "from-purple-500 to-pink-500",
+      // textColor: "text-purple-700 group-hover:text-purple-800",
+      onClick: () => setShowStats(true),
+      color: ""
+  },
+  {
+      title: "Leaderboard",
+      icon: "🏆",
+      gradient: "from-pink-500 to-rose-500",
+      // textColor: "text-pink-700 group-hover:text-pink-800",
+      onClick: () => router.push("/leaderboard"),
+      color: ""
+  },
+  {
+      title: "Tutorial",
+      icon: "🎓",
+      gradient: "from-blue-500 to-cyan-500",
+      //textColor: "text-blue-700 group-hover:text-blue-800",
+      onClick: () => console.log("Open Tutorial"),
+      color: ""
+  },
+];
+
+
+
   return (
     <section className={`mt-6 p-6 ${sectionCard}`}>
-        <h2 className="flex items-center text-2xl md:text-3xl font-semibold mb-6 text-purple-700">
-        <Settings className="w-7 h-7 mr-3" />
-        Game Settings
+       <div className="flex items-center justify-between mb-6">
+        {/* Left: Game Settings */}
+        <h2 className="flex items-center text-2xl md:text-3xl font-semibold text-purple-700">
+            <Settings className="w-7 h-7 mr-3" />
+            Game Settings
         </h2>
+
+        {/* Right: Buttons */}
+        <div className="flex gap-3">
+            <button
+            onClick={() => setShowAdvanced(true)}
+            className="px-5 py-2.5 bg-purple-200 hover:bg-purple-300 text-purple-800 font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+            >
+            ⚙️ Advanced Settings
+            </button>
+
+           {/* <button
+            onClick={() => setShowChangelog(true)}
+            className="px-5 py-2.5 bg-blue-200 hover:bg-blue-300 text-blue-800 font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+            >
+            📝 View Changelog
+            </button> */ }
+        </div>
+        </div>
+
+        
 
         <div className="grid lg:grid-cols-2 gap-8">
         {/* Level */}
@@ -84,92 +143,21 @@ export function SetupSection({
             </div>
         </div>
         </div>
-
-        {/* Extra Action Buttons */}
-        <div className="flex justify-center gap-4 mt-8">
-        <button
-            onClick={() => setShowAdvanced(true)}
-            className="px-5 py-2.5 bg-purple-200 hover:bg-purple-300 text-purple-800 font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-        >
-            ⚙️ Advanced Settings
-        </button>
-
-        <button
-            onClick={() => setShowStats(true)}
-            className="px-5 py-2.5 bg-pink-200 hover:bg-pink-300 text-pink-800 font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-        >
-            📊 Show Stats
-        </button>
-
-        <button
-            onClick={() => setShowChangelog(true)} // <-- new state for your popup
-            className="px-5 py-2.5 bg-blue-200 hover:bg-blue-300 text-blue-800 font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-        >
-            📝 View Changelog
-        </button>
-        </div>
-
-        {/* Stimulus types */}
-        <div className="mt-8 p-5 rounded-xl bg-gradient-to-br from-indigo-50 to-white border border-purple-100 shadow-sm">
-        <label className="block text-gray-700 font-medium mb-3">
-            Select Stimulus Types
-        </label>
-        <div className="flex flex-wrap gap-4">
-            {(Object.keys(stimuli) as StimulusType[]).map((type) => {
-            const active = selectedStimulusTypes.includes(type);
-            return (
-                <button
-                key={type}
-                onClick={() => handleStimulusTypeToggle(type)}
-                className={`px-4 py-2 rounded-xl border transition-all ${
-                    active
-                    ? "bg-purple-600 text-white border-purple-700 shadow"
-                    : "bg-white text-gray-700 border-gray-200 hover:border-purple-300 hover:shadow-sm"
-                }`}
-                aria-pressed={active}
-                >
-                <span className="capitalize">{type}</span>
-                </button>
-            );
-            })}
-        </div>
-        </div>
-
-        {/* Sorting patterns */}
-        <div className="mt-8 p-5 rounded-xl bg-gradient-to-br from-amber-50 to-white border border-purple-100 shadow-sm">
-        <label className="block text-gray-700 font-medium mb-3">
-            Sorting Pattern per Stimulus Type
-        </label>
-        <div className="flex flex-wrap gap-4">
-            {selectedStimulusTypes.map((type) => (
-            <div
-                key={type}
-                className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm"
-            >
-                <span className="font-semibold capitalize text-purple-700">
-                {type}
-                </span>
-                <select
-                className="rounded-md border border-gray-200 px-2 py-1 text-gray-800 hover:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-300"
-                value={sortingPatterns[type]}
-                onChange={(e) =>
-                    handleSortingPatternChange(
-                    type,
-                    e.target.value as SortingPattern
-                    )
-                }
-                aria-label={`Sorting pattern for ${type}`}
-                >
-                {availableSortingPatterns[type].map(({ key, label }) => (
-                    <option key={key} value={key}>
-                    {label}
-                    </option>
-                ))}
-                </select>
-            </div>
+        
+        {/* Cards */}
+        <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {cards.map((card) => (
+                <Card
+                key={card.title}
+                title={card.title}
+                icon={card.icon}
+                gradient={card.gradient}
+                onClick={card.onClick}
+                color={card.color}
+                />
             ))}
-        </div>
-        </div>
+            </div>
+
 
         {/* Start */}
         <div className="mt-10 text-center">

@@ -1,3 +1,5 @@
+import { version } from "os";
+
 export interface ChangelogPopupProps {
   onClose: () => void;
 }
@@ -46,6 +48,14 @@ export function ChangelogPopup({ onClose }: ChangelogPopupProps) {
     {
       version: "v1.8",
       description: "Updated meta-data. Also added more numbers(9 -> 20) because mush somehow reached D8S (dual-8-sort). Added a delay between clicking in results section(also cus of mush) so you have to wait 150 ms before click again. Should prevent accidental double clicks.",
+    },
+    {
+      version: "v1.9",
+      description: "Major UI update made. UI Looks much cleaner. Stimulus selection moved to after play button pressed."
+    },
+    {
+      version: "v2.0",
+      description: "Sign in authentication added. No signing out tho xD. Login also added. Leaderboard added. Scoring system updated to be more like IQ-based scoring system(100 = standard, points get harder to earn at higher levels). Auto-moving to next round added(shows results for 200 ms). Maybe adding ability to change timer in future."
     }
   ];
 

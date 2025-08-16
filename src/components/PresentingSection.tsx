@@ -22,6 +22,9 @@ export function PresentingSection({
   renderStimulus,
   sectionCard
 }: PresentingSectionProps) {
+  console.log("selectedStimulusTypes", selectedStimulusTypes);
+console.log("sequencesByType", sequencesByType);
+console.log("currentPresentIndex", currentPresentIndex);
   return (
     <section className={`mt-8 p-6 ${sectionCard}`}>
       <div className="text-gray-700 text-lg font-semibold select-none text-center">

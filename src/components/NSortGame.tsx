@@ -1,6 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { StimulusSettings } from "@/components/StimulusSettings";
+import { useRouter } from "next/navigation";
+import { NSortScoreProps, calculateNSortScore, saveScore} from "@/utils/scoring";
+
 import { Brain } from "lucide-react";
 import { onPracticeComplete, StatsPopup } from "../data/stats";
 import { Stimulus, StimulusType, UserSequences, SortingPattern, stimuli, availableSortingPatterns, rainbowOrder } from "@/data/types";
@@ -12,11 +16,21 @@ import "chart.js/auto";
 import ResultSection from "./ResultsSection";
 import { PresentingSection } from "./PresentingSection";
 import { SetupSection } from "./SetupSection";
+import { useAuth } from "@/hooks/useAuth";
+
+
+
 
 const NSortGame: React.FC = () => {
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  
   const [gameState, setGameState] = useState<
-    "setup" | "presenting" | "sorting" | "result"
-  >("setup");
+  "setup" | "stimulusSelection" | "presenting" | "sorting" | "result"
+>("setup");
+
+
 
   const [level, setLevel] = useState(3); // sequence length per selected type
   const [selectedStimulusTypes, setSelectedStimulusTypes] = useState<
@@ -80,6 +94,8 @@ const [showChangelog, setShowChangelog] = useState(false);
 // -- Advanced Settings Popup
 const [disableAnimation, setDisableAnimation] = useState<boolean>(false);
 
+const [autoNextRound, setAutoNextRound] = useState<boolean>(false);
+
 
   
   // Available pool for sorting (compact tiles)
@@ -99,8 +115,8 @@ const [disableAnimation, setDisableAnimation] = useState<boolean>(false);
 
   // --- Game control ---
   const startGame = () => {
-    const generated = generateSequencesByType();
-    setSequencesByType(generated);
+    
+    
     setUserSequences({
       colors: [],
       numbers: [],
@@ -109,9 +125,29 @@ const [disableAnimation, setDisableAnimation] = useState<boolean>(false);
     });
     setSelectionHistory([]);
     setCurrentPresentIndex(0);
-    setGameState("presenting");
+    setGameState("stimulusSelection"); // add stimulus selection section
     setShowingStimulus(false);
   };
+
+  const restartGame = useCallback(() => {
+    setUserSequences({
+      colors: [],
+      numbers: [],
+      letters: [],
+      shapes: [],
+    });
+    setSelectionHistory([]);
+    setCurrentPresentIndex(0);
+    setShowingStimulus(false);
+    updateStimulusSelection();
+    setGameState("presenting");
+  }, []);
+
+  const updateStimulusSelection = () => {
+      const generated = generateSequencesByType();
+      setSequencesByType(generated);
+      setGameState("presenting");
+  }
 
   const maxSequenceLength = Math.max(
     ...selectedStimulusTypes.map((t) => sequencesByType[t]?.length || 0)
@@ -208,10 +244,19 @@ const [disableAnimation, setDisableAnimation] = useState<boolean>(false);
   const checkAnswers = () => {
     const sortedSequences = getSortedSequences(selectedStimulusTypes, sequencesByType, sortingPatterns);
     let allCorrect = true;
-
+    const total : number = maxSequenceLength * selectedStimulusTypes.length;
+    let correct : number = 0;
+    // count accuracy
     for (const type of selectedStimulusTypes) {
       const userSeq = userSequences[type];
       const correctSeq = sortedSequences[type];
+      for (let i = 0; i < userSeq.length; i++) {
+        if (userSeq[i].sortValue === correctSeq[i].sortValue) { 
+          correct++;
+        }
+      }
+      
+      
 
       if (
         userSeq.length !== correctSeq.length ||
@@ -221,9 +266,20 @@ const [disableAnimation, setDisableAnimation] = useState<boolean>(false);
         break;
       }
     }
-
+    const scoreResultProps : NSortScoreProps = {
+      stimuliTypes : selectedStimulusTypes.length,
+      sequenceLength : maxSequenceLength,
+      presentationSpeed : speed,
+      accuracy : (correct / total),
+    };
+    const scoreResult = calculateNSortScore( scoreResultProps );
+    
     if (allCorrect) {
-      setScore((prev) => prev + level * 10);
+      setScore(scoreResult.score);
+      const username = user?.displayName || "Guest";
+      if(username != "Guest"){ // only registered ppl for now
+        saveScore(username, scoreResult.score);
+      }
       setStreak((prev) => prev + 1);
       
     } else {
@@ -302,8 +358,30 @@ const [disableAnimation, setDisableAnimation] = useState<boolean>(false);
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight select-none">
               N‑Sort Challenge
             </h1>
+            <button
+            onClick={() => setShowChangelog(true)}
+            className="px-5 py-2.5 bg-blue-200 hover:bg-blue-300 text-blue-800 font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+            >
+            📝 v2.0
+            </button>
           </div>
           <div className="hidden md:flex items-center gap-6">
+            {/* Login Button */}
+            { !user &&
+              <button 
+              onClick={() => router.push("/login")}
+              className="px-4 py-2 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition">
+                Login
+              </button> 
+            }
+            { /* Logged in so we instead display name */ }
+            {
+              user && 
+              <div className="px-4 py-2 rounded-xl bg-white/70 border border-purple-100 shadow-sm text-gray-700">
+              <span className="text-purple-600 font-semibold">{user?.displayName}</span>
+            </div>
+            }
+
             <div className="px-4 py-2 rounded-xl bg-white/70 border border-purple-100 shadow-sm text-gray-700">
               Score: <span className="text-purple-600 font-semibold">{score}</span>
             </div>
@@ -316,6 +394,9 @@ const [disableAnimation, setDisableAnimation] = useState<boolean>(false);
 
         {/* Mobile score/streak */}
         <div className="md:hidden mt-4 grid grid-cols-2 gap-3">
+           <button className="col-span-2 px-4 py-2 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition">
+            Login
+          </button>
           <div className="px-4 py-2 rounded-xl bg-white/80 border border-purple-100 shadow-sm text-center text-gray-700">
             Score: <span className="text-purple-600 font-semibold">{score}</span>
           </div>
@@ -344,7 +425,22 @@ const [disableAnimation, setDisableAnimation] = useState<boolean>(false);
                 availableSortingPatterns={availableSortingPatterns}
             />
     )}
-
+        {/* --- STIMULUS SELECTION --- */ }
+        {gameState === "stimulusSelection" && (
+              <section>
+                <StimulusSettings
+                  selectedStimulusTypes={selectedStimulusTypes}
+                  handleStimulusTypeToggle={handleStimulusTypeToggle}
+                  sortingPatterns={sortingPatterns}
+                  handleSortingPatternChange={handleSortingPatternChange}
+                  stimuli={stimuli}
+                  availableSortingPatterns={availableSortingPatterns}
+                  onGoBack={() => setGameState("setup")}
+                  onStartGame={() => updateStimulusSelection()}
+                />
+                
+              </section>
+            )}
         {/* --- PRESENTING --- */}
         {gameState === "presenting" && (
                   <PresentingSection
@@ -366,6 +462,8 @@ const [disableAnimation, setDisableAnimation] = useState<boolean>(false);
                 setDistinction={setDistinction}
                 disableAnimation={disableAnimation}
                 setDisableAnimation={setDisableAnimation}
+                autoNextRound = {autoNextRound}
+                setAutoNextRound={setAutoNextRound}
                 onClose={() => setShowAdvanced(false)}
             />
             )}
@@ -413,6 +511,8 @@ const [disableAnimation, setDisableAnimation] = useState<boolean>(false);
             sortingPatterns={sortingPatterns}
             renderStimulus={renderStimulus}
             startGame={startGame}
+            restartGame={restartGame}
+            autoNextRound={autoNextRound}
             setGameState={setGameState} 
             sectionCard={sectionCard}
         />
