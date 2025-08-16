@@ -1,3 +1,4 @@
+import { _descriptors } from "chart.js/helpers";
 import { version } from "os";
 
 export interface ChangelogPopupProps {
@@ -56,6 +57,14 @@ export function ChangelogPopup({ onClose }: ChangelogPopupProps) {
     {
       version: "v2.0",
       description: "Sign in authentication added. No signing out tho xD. Login also added. Leaderboard added. Scoring system updated to be more like IQ-based scoring system(100 = standard, points get harder to earn at higher levels). Auto-moving to next round added(shows results for 200 ms, user Tim's request). Maybe adding ability to change timer in future."
+    },
+    {
+      version: "v2.1",
+      description: "Fixed IQ-based scoring to be more accurate. Yes, I know a 145 IQ score accidentally got outputed as 59. Sorry, AnonAnon xD."
+    },
+    {
+      version: "v2.2",
+      description: "bug where login button didnt work on mobile(for user Tim). Issue was I didnt add click handling for login button for mobile. Sorry, Tim"
     }
   ];
 
