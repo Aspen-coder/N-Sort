@@ -78,6 +78,10 @@ export function ChangelogPopup({ onClose }: ChangelogPopupProps) {
       version: "v2.5",
       description: "Added a randomize stimuli presentation setting. Doesnt always show letter then color then number. Sometimes it switches it up :). If you have this disabled, it always follows the sorting pattern: (color, number, letter, shape). Settings are now saved to the cloud if you have an account. Would recommend you make sure you like them before you start ;). Also, mobile login button doesnt change even if u login. Fixed that.",
     },
+    {
+      version: "v2.6",
+      description: "Added a profanity filter thanks to the guy who named himself the n-word. Thanks so I could catch this early xD"
+    },
   ];
 
   return (

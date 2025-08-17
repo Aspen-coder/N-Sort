@@ -1,5 +1,7 @@
+import { useProfanity } from "@/hooks/useProfanity";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { profanityFilter } from "./profanity";
 
 
 {/* For calculating in-game score */}
@@ -147,6 +149,11 @@ function getSpeedCategory(speed : number) {
 {/* For leaderboard scores?? */}
 export async function saveScore(username: string, score: number) {
   if (!username) throw new Error("Username is required");
+
+  if(profanityFilter.isProfane(username)){
+    return;
+  }
+
 
   const scoreRef = doc(db, "scores", username); // username as doc ID
   const existingSnap = await getDoc(scoreRef);
