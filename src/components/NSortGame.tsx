@@ -96,6 +96,8 @@ const [disableAnimation, setDisableAnimation] = useState<boolean>(false);
 
 const [autoNextRound, setAutoNextRound] = useState<boolean>(false);
 
+const [randomizePresentation, setRandomizePresentation] = useState<boolean>(false);
+
 
   
   // Available pool for sorting (compact tiles)
@@ -136,12 +138,14 @@ const [autoNextRound, setAutoNextRound] = useState<boolean>(false);
       letters: [],
       shapes: [],
     });
-    setSelectionHistory([]);
+    //setSelectionHistory([]);
     setCurrentPresentIndex(0);
     setShowingStimulus(false);
+    console.log("CHECKING STIMULUS");
+    console.log(selectedStimulusTypes);
     updateStimulusSelection();
     setGameState("presenting");
-  }, []);
+  }, [selectedStimulusTypes]);
 
   const updateStimulusSelection = () => {
       const generated = generateSequencesByType();
@@ -298,7 +302,7 @@ const [autoNextRound, setAutoNextRound] = useState<boolean>(false);
     speedPerStimulus: speed,
     });
     setGameState("result");
-    console.log("Enter results");
+    console.log("Enter results", selectedStimulusTypes);
   };
 
   // Auto-check when all selected
@@ -374,7 +378,7 @@ const [autoNextRound, setAutoNextRound] = useState<boolean>(false);
             onClick={() => setShowChangelog(true)}
             className="px-5 py-2.5 bg-blue-200 hover:bg-blue-300 text-blue-800 font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
             >
-            📝 v2.2
+            📝 v2.5
             </button>
           </div>
           <div className="hidden md:flex items-center gap-6">
@@ -404,14 +408,23 @@ const [autoNextRound, setAutoNextRound] = useState<boolean>(false);
           </div>
         </header>
 
-        {/* Mobile score/streak */}
-        <div className="md:hidden mt-4 grid grid-cols-2 gap-3">
+        {/* Mobile score/streak [TODO: UPDATE FOR IF LOGGED IN] */} 
+        <div className="md:hidden mt-4 grid grid-cols-2 gap-3"> 
+          { !user &&
            <button
             className="col-span-2 px-4 py-2 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition"
             onClick={() => {router.push("/login");}}
             >
             Login
           </button>
+          }
+           {
+              user && 
+              <div className="md:hidden mt-4 grid grid-cols-2 gap-3 rounded-xl bg-white/70 border border-purple-100 shadow-sm text-gray-500">
+              <span className="text-purple-400 font-semibold">{user?.displayName}</span>
+            </div>
+            }
+
           <div className="px-4 py-2 rounded-xl bg-white/80 border border-purple-100 shadow-sm text-center text-gray-700">
             Score: <span className="text-purple-600 font-semibold">{score}</span>
           </div>
@@ -467,6 +480,7 @@ const [autoNextRound, setAutoNextRound] = useState<boolean>(false);
                     disableAnimation={disableAnimation}
                     maxSequenceLength={maxSequenceLength}
                     sectionCard={sectionCard} // optional
+                    randomizePresentation={randomizePresentation}
                 />
             )}
 
@@ -479,6 +493,8 @@ const [autoNextRound, setAutoNextRound] = useState<boolean>(false);
                 setDisableAnimation={setDisableAnimation}
                 autoNextRound = {autoNextRound}
                 setAutoNextRound={setAutoNextRound}
+                randomizePresentation={randomizePresentation}
+                setRandomizePresentation={setRandomizePresentation}
                 onClose={() => setShowAdvanced(false)}
             />
             )}

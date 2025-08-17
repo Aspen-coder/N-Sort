@@ -35,6 +35,7 @@ export default function ResultSection({
 
   useEffect(() => {
     if(autoNextRound){
+      console.log("IN RESULTS", selectedStimulusTypes);
       timerRef.current = window.setTimeout(() => {restartGame();}, 200);
     }
     return () => {

@@ -69,7 +69,15 @@ export function ChangelogPopup({ onClose }: ChangelogPopupProps) {
     {
       version: "v2.3",
       description: "TIM FOUND A BUG AGAIN. Checking only totalstimuli, not each sequence length in check answer, caused indexing issues. Also updating scoring method CUS EVERYONE BROKE IT. Favored speed waayyy too much."
-    }
+    },
+    {
+      version: "v2.4",
+      description: "More bug fixes regarding progression. Forgot what they were specifically, will check commit logs. Wait I think I remember. Something to do with autoNextRound not working."
+    },
+    {
+      version: "v2.5",
+      description: "Added a randomize stimuli presentation setting. Doesnt always show letter then color then number. Sometimes it switches it up :). If you have this disabled, it always follows the sorting pattern: (color, number, letter, shape). Settings are now saved to the cloud if you have an account. Would recommend you make sure you like them before you start ;). Also, mobile login button doesnt change even if u login. Fixed that.",
+    },
   ];
 
   return (

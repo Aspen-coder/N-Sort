@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { doc, getDoc, getFirestore, setDoc } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -15,3 +15,31 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// settings helpers
+export interface UserSettings {
+  distinction: number;
+  disableAnimation: boolean;
+  autoNextRound: boolean;
+  randomizePresentation: boolean;
+}
+
+export async function loadUserSettings(uid: string): Promise<UserSettings | null> {
+  try {
+    const ref = doc(db, "settings", uid);
+    const snap = await getDoc(ref);
+    return snap.exists() ? (snap.data() as UserSettings) : null;
+  } catch (err) {
+    console.error("Error loading settings:", err);
+    return null;
+  }
+}
+
+export async function saveUserSettings(uid: string, settings: UserSettings) {
+  try {
+    const ref = doc(db, "settings", uid);
+    await setDoc(ref, settings, { merge: true });
+  } catch (err) {
+    console.error("Error saving settings:", err);
+  }
+}

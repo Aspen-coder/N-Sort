@@ -1,5 +1,5 @@
 import { Stimulus, StimulusType } from "@/data/types";
-import React from "react";
+import React, { useMemo } from "react";
 
 interface PresentingSectionProps {
   selectedStimulusTypes: StimulusType[];
@@ -9,7 +9,12 @@ interface PresentingSectionProps {
   disableAnimation: boolean;
   maxSequenceLength: number;
   sectionCard: string;
-  renderStimulus: (stimulus: Stimulus, size: "large" | "small", extra?: string) => React.JSX.Element;
+  randomizePresentation?: boolean; // ✅ new prop
+  renderStimulus: (
+    stimulus: Stimulus,
+    size: "large" | "small",
+    extra?: string
+  ) => React.JSX.Element;
 }
 
 export function PresentingSection({
@@ -20,11 +25,37 @@ export function PresentingSection({
   disableAnimation,
   maxSequenceLength,
   renderStimulus,
-  sectionCard
+  sectionCard,
+  randomizePresentation = true, // ✅ default true
 }: PresentingSectionProps) {
-  console.log("selectedStimulusTypes", selectedStimulusTypes);
-console.log("sequencesByType", sequencesByType);
-console.log("currentPresentIndex", currentPresentIndex);
+  // shuffle helper (Fisher–Yates)
+  const shuffleArray = <T,>(arr: T[]): T[] => {
+    const copy = [...arr];
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  };
+
+  // ✅ If randomizePresentation is true, create a shuffled order
+
+  const priority: Record<StimulusType, number> = {
+    colors: 0,
+    numbers: 1,
+    letters: 2,
+    shapes: 3,
+  }
+
+  const displayStimulusTypes = useMemo(() => {
+    if(randomizePresentation){
+      return shuffleArray(selectedStimulusTypes);
+    }
+    return [...selectedStimulusTypes].sort(
+      (a,b) => priority[a] - priority[b]
+    );
+  }, [selectedStimulusTypes, randomizePresentation, currentPresentIndex]);
+
   return (
     <section className={`mt-8 p-6 ${sectionCard}`}>
       <div className="text-gray-700 text-lg font-semibold select-none text-center">
@@ -32,7 +63,7 @@ console.log("currentPresentIndex", currentPresentIndex);
       </div>
 
       <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-6">
-        {selectedStimulusTypes.map((type) => {
+        {displayStimulusTypes.map((type) => {
           const seq = sequencesByType[type] || [];
           const stim = seq[currentPresentIndex];
 
